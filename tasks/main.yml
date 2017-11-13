@@ -79,7 +79,7 @@
     - kubernetes_init_cluster
     - kubernetes_node_type == 'agent'
     - hostvars[item].kubernetes_join.stdout is defined
-  with_items: "{{ group['kubernetes'] }}"
+  with_items: "{{ groups['kubernetes'] }}"
 
 - name: Fetching cluster config to local machine
   fetch:
