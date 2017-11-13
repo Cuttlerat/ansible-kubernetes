@@ -31,7 +31,7 @@
     state: present
   with_items:
     - kubelet
-    - kubectl
+    - kubeadm
     - kubernetes-cni
   when: kubernetes_node_type == 'agent'
 
@@ -46,19 +46,19 @@
     - kubernetes-cni
   when: kubernetes_node_type == 'master'
 
-- name: Fix network_plugin
-  replace:
-    path: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
-    regexp: '\s\$KUBELET_NETWORK_ARGS'
-    replace: ''
-  register: kubeadm_conf
+#- name: Fix network_plugin
+#  replace:
+#    path: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+#    regexp: '\s\$KUBELET_NETWORK_ARGS'
+#    replace: ''
+#  register: kubeadm_conf
 
 - name: Restart kubelet daemon
   systemd:
     state: restarted
     daemon_reload: yes
     name: kubelet
-  when: kubeadm_conf.changed
+#  when: kubeadm_conf.changed
 
 - name: Init cluster
   command: bash -c "kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{ ansible_ssh_host }} --kubernetes-version stable-1.8 | grep -Eo 'kubeadm join.*$'"
@@ -69,6 +69,18 @@
     
 - name: Init flannel
   command: bash -c "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"
+  when:
+    - kubernetes_init_cluster
+    - kubernetes_node_type == 'master'
+    
+- name: Init flannel-rbac
+  command: bash -c "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml"
+  when:
+    - kubernetes_init_cluster
+    - kubernetes_node_type == 'master'
+    
+- name: Let master to be agent
+  command: bash -c "KUBECONFIG=/etc/kubernetes/admin.conf kubectl taint nodes --all node-role.kubernetes.io/master-"
   when:
     - kubernetes_init_cluster
     - kubernetes_node_type == 'master'
