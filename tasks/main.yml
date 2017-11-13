@@ -60,18 +60,12 @@
     path: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
     regexp: '\s\$KUBELET_NETWORK_ARGS'
     replace: ''
-  when:
-    - kubernetes_init_cluster
-    - kubernetes_node_type == 'admin' or kubernetes_node_type == 'master'
 
 - name: Restart kubelet daemon
   systemd:
     state: restarted
     daemon_reload: yes
     name: kubelet
-  when:
-    - kubernetes_init_cluster
-    - kubernetes_node_type == 'admin' or kubernetes_node_type == 'master'
 
 - name: Init cluster
   command: "kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{ ansible_ssh_host }} --kubernetes-version stable-1.8"
