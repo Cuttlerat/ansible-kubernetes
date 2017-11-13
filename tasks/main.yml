@@ -67,7 +67,7 @@
     - kubernetes_init_cluster
     - kubernetes_node_type == 'master'
     
-- name: Init cluster
+- name: Init flannel
   command: bash -c "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"
   when:
     - kubernetes_init_cluster
