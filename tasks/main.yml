@@ -68,10 +68,13 @@
     name: kubelet
 
 - name: Init cluster
-  command: "kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{ ansible_ssh_host }} --kubernetes-version stable-1.8"
+  command: "kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{ ansible_ssh_host }} --kubernetes-version stable-1.8 | grep 'kubeadm join'"
+  register: kubernetes_join
   when:
     - kubernetes_init_cluster
     - kubernetes_node_type == 'admin' or kubernetes_node_type == 'master'
+
+- debug: msg={{ kubernetes_join.stdout }}
 
 - name: Fetching cluster config to local machine
   fetch:
