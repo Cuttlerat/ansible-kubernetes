@@ -25,14 +25,15 @@
     repo: 'deb http://apt.kubernetes.io/ kubernetes-xenial main'
     state: present
   
-- name: Install kubernetes (worker)
+- name: Install kubernetes (agent)
   apt:
     name: '{{ item }}'
     state: present
   with_items:
     - kubelet
+    - kubectl
     - kubernetes-cni
-  when: kubernetes_node_type == 'worker'
+  when: kubernetes_node_type == 'agent'
 
 - name: Install kubernetes (master)
   apt:
@@ -41,19 +42,9 @@
   with_items:
     - kubelet
     - kubectl
-    - kubernetes-cni
-  when: kubernetes_node_type == 'master'
-
-- name: Install kubernetes (admin)
-  apt:
-    name: '{{ item }}'
-    state: present
-  with_items:
-    - kubelet
-    - kubectl
     - kubeadm
     - kubernetes-cni
-  when: kubernetes_node_type == 'admin'
+  when: kubernetes_node_type == 'master'
 
 - name: Fix network_plugin
   replace:
