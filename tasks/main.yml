@@ -67,13 +67,19 @@
     - kubernetes_init_cluster
     - kubernetes_node_type == 'master'
     
+- name: Init cluster
+  command: bash -c "KUBECONFIG=/etc/kubernetes/admin.conf kubeadm apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"
+  when:
+    - kubernetes_init_cluster
+    - kubernetes_node_type == 'master'
+    
 - name: Join agents to cluster
   command: bash -c "{{ hostvars[item].kubernetes_join.stdout }}"
   when:
     - kubernetes_init_cluster
     - kubernetes_node_type == 'agent'
     - hostvars[item].kubernetes_join.stdout is defined
-  with_items: "{{ group[groupname] }}"
+  with_items: "{{ group['kubernetes'] }}"
 
 - name: Fetching cluster config to local machine
   fetch:
