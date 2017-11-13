@@ -68,8 +68,8 @@
     - kubernetes_node_type == 'admin' or kubernetes_node_type == 'master'
 
 - name: Get kubeadm join
-    debug:
-      msg: {{ kubernetes_join.stdout }}
+  debug:
+    msg: {{ kubernetes_join.stdout }}
   when: kubernetes_join is defined
 
 - name: Fetching cluster config to local machine
