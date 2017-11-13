@@ -7,7 +7,7 @@
 - name: Ensure ca-certificates installed
   apt:
     name: ca-certificates
-  state: present
+    state: present
 
 - name: Ensure ca-certificates installed
   apt:
@@ -61,16 +61,19 @@
   when: kubeadm_conf.changed
 
 - name: Init cluster
-  command: "kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{ ansible_ssh_host }} --kubernetes-version stable-1.8 | grep 'kubeadm join'"
+  command: bash -c "kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{ ansible_ssh_host }} --kubernetes-version stable-1.8 | grep -Eo 'kubeadm join.*$'"
   register: kubernetes_join
   when:
     - kubernetes_init_cluster
-    - kubernetes_node_type == 'admin' or kubernetes_node_type == 'master'
-
-- name: Get kubeadm join
-  debug:
-    msg: {{ kubernetes_join.stdout }}
-  when: kubernetes_join is defined
+    - kubernetes_node_type == 'master'
+    
+- name: Join agents to cluster
+  command: bash -c "{{ hostvars[item].kubernetes_join.stdout }}"
+  when:
+    - kubernetes_init_cluster
+    - kubernetes_node_type == 'agent'
+    - hostvars[item].kubernetes_join.stdout is defined
+  with_items: "{{ group[groupname] }}"
 
 - name: Fetching cluster config to local machine
   fetch:
@@ -80,4 +83,4 @@
   when:
     - kubernetes_copy_config is defined
     - kubernetes_copy_config
-    - kubernetes_node_type == 'admin' or kubernetes_node_type == 'master'
+    - kubernetes_node_type == 'master'
