@@ -84,3 +84,4 @@
   when:
     - kubernetes_copy_config is defined
     - kubernetes_copy_config
+    - kubernetes_node_type == 'admin' or kubernetes_node_type == 'master'
