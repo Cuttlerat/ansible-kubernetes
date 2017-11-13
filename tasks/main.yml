@@ -84,4 +84,6 @@
     src: /etc/kubernetes/admin.conf
     dest: /tmp/
     flat: yes
-  when: kubernetes_copy_config
+  when:
+    - kubernetes_copy_config is defined
+    - kubernetes_copy_config
