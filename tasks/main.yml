@@ -46,19 +46,19 @@
     - kubernetes-cni
   when: kubernetes_node_type == 'master'
 
-#- name: Fix network_plugin
-#  replace:
-#    path: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
-#    regexp: '\s\$KUBELET_NETWORK_ARGS'
-#    replace: ''
-#  register: kubeadm_conf
+- name: Fix network_plugin
+  replace:
+    path: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+    regexp: '\s\$KUBELET_NETWORK_ARGS'
+    replace: ''
+  register: kubeadm_conf
 
 - name: Restart kubelet daemon
   systemd:
     state: restarted
     daemon_reload: yes
     name: kubelet
-#  when: kubeadm_conf.changed
+  when: kubeadm_conf.changed
 
 - name: Init cluster
   command: bash -c "kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{ ansible_ssh_host }} --kubernetes-version stable-1.8 | grep -Eo 'kubeadm join.*$'"
@@ -67,23 +67,65 @@
     - kubernetes_init_cluster
     - kubernetes_node_type == 'master'
     
-- name: Init flannel
-  command: bash -c "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"
+- name: Set ports
+  lineinfile:
+    path: /etc/kubernetes/manifests/kube-apiserver.yaml
+    regexp: "^    - --service-node-port-range=80-32767$"
+    insertafter: "^    - kube-apiserver$"
+    line: "    - --service-node-port-range=80-32767"
+  register: ports
   when:
     - kubernetes_init_cluster
     - kubernetes_node_type == 'master'
     
-- name: Init flannel-rbac
-  command: bash -c "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml"
+- name: Restart kubelet daemon
+  systemd:
+    state: restarted
+    daemon_reload: yes
+    name: kubelet
   when:
     - kubernetes_init_cluster
     - kubernetes_node_type == 'master'
+    - ports.changed is defined
+    - ports.changed
+
+- name: Let master be agent
+  command: bash -c "sleep 30 && KUBECONFIG=/etc/kubernetes/admin.conf kubectl taint nodes --all node-role.kubernetes.io/master-"
+  when:
+    - kubernetes_init_cluster
+    - kubernetes_node_type == 'master'
+
+- name: Copy init.yml to master
+  copy:
+    src: "{{ item }}"
+    dest: "/tmp/{{ item }}"
+    mode: 0600
+  with_items:
+    - init.yml
     
-- name: Let master to be agent
-  command: bash -c "KUBECONFIG=/etc/kubernetes/admin.conf kubectl taint nodes --all node-role.kubernetes.io/master-"
+- name: Apply init.yml to cluster
+  command: bash -c "KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f {{ item }}"
   when:
     - kubernetes_init_cluster
     - kubernetes_node_type == 'master'
+  with_items:
+    - "https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"
+    - "https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml"
+    - "https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/namespace.yaml"
+    - "https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/default-backend.yaml"
+    - "https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/configmap.yaml"
+    - "https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/tcp-services-configmap.yaml"
+    - "https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/udp-services-configmap.yaml"
+    - "https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/rbac.yaml"
+    - "https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/with-rbac.yaml"
+    - "/tmp/init.yml"
+
+- name: Delete init.yml
+  file:
+    path: "/tmp/{{ item }}"
+    state: absent
+  with_items:
+    - init.yml
     
 - name: Join agents to cluster
   command: bash -c "{{ hostvars[item].kubernetes_join.stdout }}"
